@@ -21,7 +21,7 @@ export const PackagingTab: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     collaboratorId: '',
     quantity: '',
-    productId: ''
+    productId: 'none'
   });
 
   const today = new Date().toISOString().split('T')[0];
@@ -56,13 +56,13 @@ export const PackagingTab: React.FC = () => {
       date: formData.date,
       collaboratorId: formData.collaboratorId,
       quantity: parseInt(formData.quantity),
-      productId: formData.productId || undefined
+      productId: formData.productId === 'none' ? undefined : formData.productId || undefined
     });
 
     setFormData({
       ...formData,
       quantity: '',
-      productId: ''
+      productId: 'none'
     });
 
     toast({
@@ -169,7 +169,7 @@ export const PackagingTab: React.FC = () => {
                     <SelectValue placeholder="Selecione o produto" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border">
-                    <SelectItem value="">Não especificado</SelectItem>
+                    <SelectItem value="none">Não especificado</SelectItem>
                     {products.map(product => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.name} ({product.weightPerBag}kg)
