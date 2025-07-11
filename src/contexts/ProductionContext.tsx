@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '@/firebase';
 import { Product, TeamMember, ProductionRecord, PackagingRecord, StopRecord } from '@/types/production';
 
 interface ProductionContextType {
@@ -10,13 +12,13 @@ interface ProductionContextType {
   stopRecords: StopRecord[];
   
   // Actions
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  addTeamMember: (member: Omit<TeamMember, 'id'>) => void;
-  addProductionRecord: (record: Omit<ProductionRecord, 'id' | 'timestamp'>) => void;
-  addPackagingRecord: (record: Omit<PackagingRecord, 'id' | 'timestamp'>) => void;
-  addStopRecord: (record: Omit<StopRecord, 'id' | 'timestamp'>) => void;
-  endStopRecord: (id: string) => void;
-  deleteRecord: (type: 'production' | 'packaging' | 'stop', id: string) => void;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  addTeamMember: (member: Omit<TeamMember, 'id'>) => Promise<void>;
+  addProductionRecord: (record: Omit<ProductionRecord, 'id' | 'timestamp'>) => Promise<void>;
+  addPackagingRecord: (record: Omit<PackagingRecord, 'id' | 'timestamp'>) => Promise<void>;
+  addStopRecord: (record: Omit<StopRecord, 'id' | 'timestamp'>) => Promise<void>;
+  endStopRecord: (id: string) => Promise<void>;
+  deleteRecord: (type: 'production' | 'packaging' | 'stop', id: string) => Promise<void>;
   
   // Computed values
   getDailyProduction: (date: string) => { box1: number; box2: number; total: number };
@@ -35,126 +37,213 @@ export const useProduction = () => {
 };
 
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([
-    { id: '1', name: 'Ração Bovina', weightPerBag: 30 },
-    { id: '2', name: 'Proteinado', weightPerBag: 25 },
-  ]);
-
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
-    { id: '1', name: 'Maria Silva', role: 'packaging' },
-    { id: '2', name: 'Ana Costa', role: 'packaging' },
-    { id: '3', name: 'João Santos', role: 'bagging', boxNumber: 1 },
-    { id: '4', name: 'Pedro Lima', role: 'bagging', boxNumber: 2 },
-  ]);
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [productionRecords, setProductionRecords] = useState<ProductionRecord[]>([]);
   const [packagingRecords, setPackagingRecords] = useState<PackagingRecord[]>([]);
   const [stopRecords, setStopRecords] = useState<StopRecord[]>([]);
 
-  // Load data from localStorage on mount
+  // Initialize default data and load from Firestore
   useEffect(() => {
-    const savedProducts = localStorage.getItem('production-products');
-    const savedMembers = localStorage.getItem('production-members');
-    const savedProduction = localStorage.getItem('production-records');
-    const savedPackaging = localStorage.getItem('packaging-records');
-    const savedStops = localStorage.getItem('stop-records');
+    const initializeData = async () => {
+      try {
+        // Initialize products if empty
+        const productsSnapshot = await getDocs(collection(db, 'products'));
+        if (productsSnapshot.empty) {
+          const defaultProducts = [
+            { name: 'Ração Bovina', weightPerBag: 30 },
+            { name: 'Proteinado', weightPerBag: 25 },
+          ];
+          for (const product of defaultProducts) {
+            await addDoc(collection(db, 'products'), product);
+          }
+        }
 
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
-    if (savedMembers) setTeamMembers(JSON.parse(savedMembers));
-    if (savedProduction) setProductionRecords(JSON.parse(savedProduction));
-    if (savedPackaging) setPackagingRecords(JSON.parse(savedPackaging));
-    if (savedStops) setStopRecords(JSON.parse(savedStops));
+        // Initialize team members if empty
+        const membersSnapshot = await getDocs(collection(db, 'team-members'));
+        if (membersSnapshot.empty) {
+          const defaultMembers = [
+            { name: 'Maria Silva', role: 'packaging' },
+            { name: 'Ana Costa', role: 'packaging' },
+            { name: 'João Santos', role: 'bagging', boxNumber: 1 },
+            { name: 'Pedro Lima', role: 'bagging', boxNumber: 2 },
+          ];
+          for (const member of defaultMembers) {
+            await addDoc(collection(db, 'team-members'), member);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing default data:', error);
+      }
+    };
+
+    initializeData();
   }, []);
 
-  // Save to localStorage whenever data changes
+  // Set up real-time listeners for all collections
   useEffect(() => {
-    localStorage.setItem('production-products', JSON.stringify(products));
-  }, [products]);
+    const unsubscribeProducts = onSnapshot(
+      query(collection(db, 'products'), orderBy('name')),
+      (snapshot) => {
+        const productsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Product));
+        setProducts(productsData);
+      },
+      (error) => console.error('Error loading products:', error)
+    );
 
-  useEffect(() => {
-    localStorage.setItem('production-members', JSON.stringify(teamMembers));
-  }, [teamMembers]);
+    const unsubscribeMembers = onSnapshot(
+      query(collection(db, 'team-members'), orderBy('name')),
+      (snapshot) => {
+        const membersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as TeamMember));
+        setTeamMembers(membersData);
+      },
+      (error) => console.error('Error loading team members:', error)
+    );
 
-  useEffect(() => {
-    localStorage.setItem('production-records', JSON.stringify(productionRecords));
-  }, [productionRecords]);
+    const unsubscribeProduction = onSnapshot(
+      query(collection(db, 'production-records'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const productionData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as ProductionRecord));
+        setProductionRecords(productionData);
+      },
+      (error) => console.error('Error loading production records:', error)
+    );
 
-  useEffect(() => {
-    localStorage.setItem('packaging-records', JSON.stringify(packagingRecords));
-  }, [packagingRecords]);
+    const unsubscribePackaging = onSnapshot(
+      query(collection(db, 'packaging-records'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const packagingData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as PackagingRecord));
+        setPackagingRecords(packagingData);
+      },
+      (error) => console.error('Error loading packaging records:', error)
+    );
 
-  useEffect(() => {
-    localStorage.setItem('stop-records', JSON.stringify(stopRecords));
-  }, [stopRecords]);
+    const unsubscribeStops = onSnapshot(
+      query(collection(db, 'stop-records'), orderBy('timestamp', 'desc')),
+      (snapshot) => {
+        const stopsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as StopRecord));
+        setStopRecords(stopsData);
+      },
+      (error) => console.error('Error loading stop records:', error)
+    );
 
-  const addProduct = (product: Omit<Product, 'id'>) => {
-    const newProduct = { ...product, id: Date.now().toString() };
-    setProducts(prev => [...prev, newProduct]);
-  };
-
-  const addTeamMember = (member: Omit<TeamMember, 'id'>) => {
-    const newMember = { ...member, id: Date.now().toString() };
-    setTeamMembers(prev => [...prev, newMember]);
-  };
-
-  const addProductionRecord = (record: Omit<ProductionRecord, 'id' | 'timestamp'>) => {
-    const newRecord = { 
-      ...record, 
-      id: Date.now().toString(),
-      timestamp: Date.now()
+    return () => {
+      unsubscribeProducts();
+      unsubscribeMembers();
+      unsubscribeProduction();
+      unsubscribePackaging();
+      unsubscribeStops();
     };
-    setProductionRecords(prev => [...prev, newRecord]);
+  }, []);
+
+  const addProduct = async (product: Omit<Product, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'products'), product);
+    } catch (error) {
+      console.error('Error adding product:', error);
+    }
   };
 
-  const addPackagingRecord = (record: Omit<PackagingRecord, 'id' | 'timestamp'>) => {
-    const newRecord = { 
-      ...record, 
-      id: Date.now().toString(),
-      timestamp: Date.now()
-    };
-    setPackagingRecords(prev => [...prev, newRecord]);
+  const addTeamMember = async (member: Omit<TeamMember, 'id'>) => {
+    try {
+      await addDoc(collection(db, 'team-members'), member);
+    } catch (error) {
+      console.error('Error adding team member:', error);
+    }
   };
 
-  const addStopRecord = (record: Omit<StopRecord, 'id' | 'timestamp'>) => {
-    const newRecord = { 
-      ...record, 
-      id: Date.now().toString(),
-      timestamp: Date.now(),
-      isActive: true
-    };
-    setStopRecords(prev => [...prev, newRecord]);
+  const addProductionRecord = async (record: Omit<ProductionRecord, 'id' | 'timestamp'>) => {
+    try {
+      const newRecord = { 
+        ...record, 
+        timestamp: Date.now()
+      };
+      await addDoc(collection(db, 'production-records'), newRecord);
+    } catch (error) {
+      console.error('Error adding production record:', error);
+    }
   };
 
-  const endStopRecord = (id: string) => {
-    setStopRecords(prev => prev.map(stop => {
-      if (stop.id === id && stop.isActive) {
+  const addPackagingRecord = async (record: Omit<PackagingRecord, 'id' | 'timestamp'>) => {
+    try {
+      const newRecord = { 
+        ...record, 
+        timestamp: Date.now()
+      };
+      await addDoc(collection(db, 'packaging-records'), newRecord);
+    } catch (error) {
+      console.error('Error adding packaging record:', error);
+    }
+  };
+
+  const addStopRecord = async (record: Omit<StopRecord, 'id' | 'timestamp'>) => {
+    try {
+      const newRecord = { 
+        ...record, 
+        timestamp: Date.now(),
+        isActive: true
+      };
+      await addDoc(collection(db, 'stop-records'), newRecord);
+    } catch (error) {
+      console.error('Error adding stop record:', error);
+    }
+  };
+
+  const endStopRecord = async (id: string) => {
+    try {
+      const stopRef = doc(db, 'stop-records', id);
+      const stop = stopRecords.find(s => s.id === id && s.isActive);
+      
+      if (stop) {
         const endTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const start = new Date(`1970-01-01T${stop.startTime}:00`);
         const end = new Date(`1970-01-01T${endTime}:00`);
         const duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
         
-        return {
-          ...stop,
+        await updateDoc(stopRef, {
           endTime,
           duration,
           isActive: false
-        };
+        });
       }
-      return stop;
-    }));
+    } catch (error) {
+      console.error('Error ending stop record:', error);
+    }
   };
 
-  const deleteRecord = (type: 'production' | 'packaging' | 'stop', id: string) => {
-    switch (type) {
-      case 'production':
-        setProductionRecords(prev => prev.filter(r => r.id !== id));
-        break;
-      case 'packaging':
-        setPackagingRecords(prev => prev.filter(r => r.id !== id));
-        break;
-      case 'stop':
-        setStopRecords(prev => prev.filter(r => r.id !== id));
-        break;
+  const deleteRecord = async (type: 'production' | 'packaging' | 'stop', id: string) => {
+    try {
+      let collectionName = '';
+      switch (type) {
+        case 'production':
+          collectionName = 'production-records';
+          break;
+        case 'packaging':
+          collectionName = 'packaging-records';
+          break;
+        case 'stop':
+          collectionName = 'stop-records';
+          break;
+      }
+      
+      await deleteDoc(doc(db, collectionName, id));
+    } catch (error) {
+      console.error(`Error deleting ${type} record:`, error);
     }
   };
 

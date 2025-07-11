@@ -22,7 +22,7 @@ export const SettingsTab: React.FC = () => {
     boxNumber: '' as '1' | '2' | ''
   });
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!productForm.name || !productForm.weightPerBag) {
@@ -34,20 +34,28 @@ export const SettingsTab: React.FC = () => {
       return;
     }
 
-    addProduct({
-      name: productForm.name,
-      weightPerBag: parseInt(productForm.weightPerBag)
-    });
+    try {
+      await addProduct({
+        name: productForm.name,
+        weightPerBag: parseInt(productForm.weightPerBag)
+      });
 
-    setProductForm({ name: '', weightPerBag: '' });
+      setProductForm({ name: '', weightPerBag: '' });
 
-    toast({
-      title: "Sucesso",
-      description: "Produto adicionado com sucesso",
-    });
+      toast({
+        title: "Sucesso",
+        description: "Produto adicionado com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar produto",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!memberForm.name || !memberForm.role) {
@@ -68,18 +76,26 @@ export const SettingsTab: React.FC = () => {
       return;
     }
 
-    addTeamMember({
-      name: memberForm.name,
-      role: memberForm.role,
-      boxNumber: memberForm.role === 'bagging' ? parseInt(memberForm.boxNumber) as 1 | 2 : undefined
-    });
+    try {
+      await addTeamMember({
+        name: memberForm.name,
+        role: memberForm.role,
+        boxNumber: memberForm.role === 'bagging' ? parseInt(memberForm.boxNumber) as 1 | 2 : undefined
+      });
 
-    setMemberForm({ name: '', role: '', boxNumber: '' });
+      setMemberForm({ name: '', role: '', boxNumber: '' });
 
-    toast({
-      title: "Sucesso",
-      description: "Colaborador adicionado com sucesso",
-    });
+      toast({
+        title: "Sucesso",
+        description: "Colaborador adicionado com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar colaborador",
+        variant: "destructive"
+      });
+    }
   };
 
   const packagingTeam = teamMembers.filter(m => m.role === 'packaging');
@@ -279,8 +295,8 @@ export const SettingsTab: React.FC = () => {
             
             <div>
               <h4 className="font-medium text-card-foreground mb-2">Armazenamento</h4>
-              <p className="text-sm text-success">Local Storage</p>
-              <p className="text-sm text-muted-foreground">dados salvos automaticamente</p>
+              <p className="text-sm text-success">Firebase Firestore</p>
+              <p className="text-sm text-muted-foreground">sincronização em tempo real</p>
             </div>
           </div>
           

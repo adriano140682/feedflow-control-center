@@ -35,7 +35,7 @@ export const StopsTab: React.FC = () => {
     .filter(stop => !stop.isActive)
     .reduce((sum, stop) => sum + (stop.duration || 0), 0);
 
-  const handleStartStop = (e: React.FormEvent) => {
+  const handleStartStop = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.sector || !formData.reason) {
@@ -59,37 +59,61 @@ export const StopsTab: React.FC = () => {
 
     const currentTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
-    addStopRecord({
-      sector: formData.sector,
-      startTime: currentTime,
-      reason: formData.reason,
-      isActive: true
-    });
-
-    setFormData({ sector: '', reason: '' });
-
-    toast({
-      title: "Parada Iniciada",
-      description: `Parada registrada para ${formData.sector === 'box1' ? 'Caixa 01' : formData.sector === 'box2' ? 'Caixa 02' : 'Embalagem'}`,
-      variant: "default"
-    });
-  };
-
-  const handleEndStop = (id: string, sector: string) => {
-    endStopRecord(id);
-    toast({
-      title: "Parada Encerrada",
-      description: `Parada do setor ${sector === 'box1' ? 'Caixa 01' : sector === 'box2' ? 'Caixa 02' : 'Embalagem'} foi encerrada`,
-    });
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este registro?')) {
-      deleteRecord('stop', id);
-      toast({
-        title: "Sucesso",
-        description: "Registro excluído com sucesso",
+    try {
+      await addStopRecord({
+        sector: formData.sector,
+        startTime: currentTime,
+        reason: formData.reason,
+        isActive: true
       });
+
+      setFormData({ sector: '', reason: '' });
+
+      toast({
+        title: "Parada Iniciada",
+        description: `Parada registrada para ${formData.sector === 'box1' ? 'Caixa 01' : formData.sector === 'box2' ? 'Caixa 02' : 'Embalagem'}`,
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar parada",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEndStop = async (id: string, sector: string) => {
+    try {
+      await endStopRecord(id);
+      toast({
+        title: "Parada Encerrada",
+        description: `Parada do setor ${sector === 'box1' ? 'Caixa 01' : sector === 'box2' ? 'Caixa 02' : 'Embalagem'} foi encerrada`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao encerrar parada",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+      try {
+        await deleteRecord('stop', id);
+        toast({
+          title: "Sucesso",
+          description: "Registro excluído com sucesso",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao excluir registro",
+          variant: "destructive"
+        });
+      }
     }
   };
 

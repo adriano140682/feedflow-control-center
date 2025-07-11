@@ -40,7 +40,7 @@ export const PackagingTab: React.FC = () => {
     return { member, total, records: memberRecords };
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.collaboratorId || !formData.quantity) {
@@ -52,32 +52,48 @@ export const PackagingTab: React.FC = () => {
       return;
     }
 
-    addPackagingRecord({
-      date: formData.date,
-      collaboratorId: formData.collaboratorId,
-      quantity: parseInt(formData.quantity),
-      productId: formData.productId === 'none' ? undefined : formData.productId || undefined
-    });
+    try {
+      await addPackagingRecord({
+        date: formData.date,
+        collaboratorId: formData.collaboratorId,
+        quantity: parseInt(formData.quantity),
+        productId: formData.productId === 'none' ? undefined : formData.productId || undefined
+      });
 
-    setFormData({
-      ...formData,
-      quantity: '',
-      productId: 'none'
-    });
+      setFormData({
+        ...formData,
+        quantity: '',
+        productId: 'none'
+      });
 
-    toast({
-      title: "Sucesso",
-      description: "Embalagem registrada com sucesso",
-    });
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este registro?')) {
-      deleteRecord('packaging', id);
       toast({
         title: "Sucesso",
-        description: "Registro excluído com sucesso",
+        description: "Embalagem registrada com sucesso",
       });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar embalagem",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+      try {
+        await deleteRecord('packaging', id);
+        toast({
+          title: "Sucesso",
+          description: "Registro excluído com sucesso",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao excluir registro",
+          variant: "destructive"
+        });
+      }
     }
   };
 

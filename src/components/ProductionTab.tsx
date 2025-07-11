@@ -33,7 +33,7 @@ export const ProductionTab: React.FC = () => {
     .filter(r => r.date === today)
     .sort((a, b) => b.timestamp - a.timestamp);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.boxNumber || !formData.productId || !formData.quantity) {
@@ -45,34 +45,50 @@ export const ProductionTab: React.FC = () => {
       return;
     }
 
-    addProductionRecord({
-      date: formData.date,
-      time: formData.time,
-      boxNumber: parseInt(formData.boxNumber) as 1 | 2,
-      productId: formData.productId,
-      quantity: parseInt(formData.quantity),
-      observations: formData.observations || undefined
-    });
+    try {
+      await addProductionRecord({
+        date: formData.date,
+        time: formData.time,
+        boxNumber: parseInt(formData.boxNumber) as 1 | 2,
+        productId: formData.productId,
+        quantity: parseInt(formData.quantity),
+        observations: formData.observations || undefined
+      });
 
-    setFormData({
-      ...formData,
-      quantity: '',
-      observations: ''
-    });
+      setFormData({
+        ...formData,
+        quantity: '',
+        observations: ''
+      });
 
-    toast({
-      title: "Sucesso",
-      description: "Produção registrada com sucesso",
-    });
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este registro?')) {
-      deleteRecord('production', id);
       toast({
         title: "Sucesso",
-        description: "Registro excluído com sucesso",
+        description: "Produção registrada com sucesso",
       });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar produção",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+      try {
+        await deleteRecord('production', id);
+        toast({
+          title: "Sucesso",
+          description: "Registro excluído com sucesso",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Erro ao excluir registro",
+          variant: "destructive"
+        });
+      }
     }
   };
 
