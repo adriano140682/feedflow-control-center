@@ -12,18 +12,13 @@ export const Dashboard: React.FC = () => {
     stopRecords, 
     products, 
     teamMembers,
-    getActiveStops,
-    productionRecords
+    getActiveStops 
   } = useProduction();
 
   const today = new Date().toISOString().split('T')[0];
   const dailyProduction = getDailyProduction(today);
   const hourlyData = getHourlyProduction(today);
   const activeStops = getActiveStops();
-  
-  console.log('Dashboard - Production Records:', productionRecords);
-  console.log('Dashboard - Hourly Data:', hourlyData);
-  console.log('Dashboard - Daily Production:', dailyProduction);
   
   const todayPackaging = packagingRecords
     .filter(r => r.date === today)
@@ -32,17 +27,15 @@ export const Dashboard: React.FC = () => {
   const todayStops = stopRecords.filter(r => r.startTime.includes(today.split('-').reverse().join('/')));
   const totalStopTime = todayStops.reduce((sum, stop) => sum + (stop.duration || 0), 0);
 
-  // Chart data for hourly production - show all hours with data
-  const chartData = hourlyData.map(h => ({
-    hour: h.hour,
-    'Caixa 01': h.box1,
-    'Caixa 02': h.box2,
-    Total: h.box1 + h.box2
-  })).filter(h => h.Total > 0); // Only show hours with production
-
-  // If no data, show message
-  const hasProductionData = productionRecords.length > 0;
-  const hasTodayData = chartData.length > 0;
+  // Chart data for hourly production
+  const chartData = hourlyData
+    .filter(h => h.box1 > 0 || h.box2 > 0)
+    .map(h => ({
+      hour: h.hour,
+      'Caixa 01': h.box1,
+      'Caixa 02': h.box2,
+      Total: h.box1 + h.box2
+    }));
 
   return (
     <div className="space-y-6">
@@ -107,46 +100,30 @@ export const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              {!hasProductionData ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="text-muted-foreground mb-2">Carregando dados do Firebase...</div>
-                    <div className="animate-pulse w-4 h-4 bg-primary rounded-full mx-auto"></div>
-                  </div>
-                </div>
-              ) : !hasTodayData ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center text-muted-foreground">
-                    <div>Nenhuma produção registrada hoje</div>
-                    <div className="text-sm mt-1">Adicione registros na aba Produção</div>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="hour" 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        color: 'hsl(var(--card-foreground))'
-                      }}
-                    />
-                    <Bar dataKey="Caixa 01" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="Caixa 02" fill="hsl(var(--accent))" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="hour" 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      color: 'hsl(var(--card-foreground))'
+                    }}
+                  />
+                  <Bar dataKey="Caixa 01" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="Caixa 02" fill="hsl(var(--accent))" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
